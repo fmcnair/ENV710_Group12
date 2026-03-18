@@ -161,10 +161,19 @@ plot_2022
 ```
 
 ```{r}
-plot_2016_SVI <- ggplot(data_2016_SVI, aes(`CURRENT PREVALENCE`, EP_AGE65)) +
-  geom_point()
+plot_2020_SVI <- ggplot(data_2020_SVI, aes(AQI, E_POV150)) +
+  geom_point() +
+  geom_smooth(method = "lm") + 
+  stat_cor(aes(label = after_stat(rr.label)))
 
-plot_2016_SVI
+plot_2020_SVI
+
+plot_2020_RPL <- ggplot(data_2020_SVI, aes(AQI, RPL_THEME3)) +
+  geom_point() +
+  geom_smooth(method = "lm") + 
+  stat_cor(aes(label = after_stat(rr.label)))
+
+plot_2020_RPL
 ```
 
 ```{r}
@@ -183,7 +192,88 @@ combined_plot
 ```
 
 ```{r}
-fires <- read
+fires <- st_read("~/Downloads/California_Historic_Fire_Perimeters_-6273763535668926275")
+
+head(fires)
+
+fires$ALARM_DATE <- as.Date(fires$ALARM_DATE)
+
+fires_clean <- fires %>%
+  subset(select= -c(STATE, AGENCY, INC_NUM, C_METHOD, OBJECTIVE, COMMENTS,
+                    COMPLEX_NA, IRWINID, FIRE_NUM, COMPLEX_ID)) %>%
+  filter(YEAR_ == "2022" | YEAR_ == "2020" | YEAR_ == "2018" | YEAR_ == "2016")
 ```
 
+```{r}
+cali_counties <- st_read("~/Downloads/ca_counties/CA_Counties.shp")
+
+occurrences_with_county <- st_join(
+  fires_clean,
+  cali_counties,
+  join = st_intersects
+)
+
+write_csv(occurrences_with_county, here("Fires_per_county.csv"))
+```
+
+```{r}
+county_fires <- read_csv(here("Fires_per_county.csv"))
+county_fires_clean <- county_fires %>%
+  select(c(YEAR_, UNIT_ID, FIRE_NAME, ALARM_DATE, CONT_DATE, GIS_ACRES, DECADES, 
+           GEOID, NAME, ALAND, AWATER, Shape_Leng, Shape_Area, geometry))
+```
+
+```{r}
+fires_2022 <- county_fires %>%
+  filter(YEAR_ == "2022")
+
+fires_2022_counts <- as.data.frame(count(fires_2022, NAME)) %>%
+  rename(COUNTY = NAME)
+
+fires_aqi_2022 <- full_join(data_2022, fires_2022_counts, by = "COUNTY") %>%
+  drop_na()
+
+fires_2016 <- county_fires %>%
+  filter(YEAR_ == "2016")
+
+fires_2016_counts <- as.data.frame(count(fires_2016, NAME)) %>%
+  rename(COUNTY = NAME)
+
+fires_aqi_2016 <- full_join(data_2016, fires_2016_counts, by = "COUNTY")
+```
+
+```{r}
+fire_plot <- ggplot(fires_aqi_2022, aes(x=COUNTY, y=n)) + 
+  geom_bar(stat = "identity", fill = "red") + 
+  geom_point(data = fires_aqi_2022, aes(x = COUNTY, y=AQI*0.4), 
+             color = "blue") + 
+  scale_y_continuous(name = "Fires Counts", 
+                     sec.axis = sec_axis(~ . / 0.4, name = "AQI")) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) + 
+  labs(title = "Fire Counts and AQI per County in 2022")
+  
+fire_plot
+
+fire_plot_asthma <- ggplot(fires_aqi_2022, aes(x=COUNTY, y=n)) + 
+  geom_bar(stat = "identity", fill = "red") + 
+  geom_point(data = fires_aqi_2022, aes(x = COUNTY, y=`CURRENT PREVALENCE`), 
+             color = "blue") + 
+  scale_y_continuous(name = "Fires Counts", 
+                     sec.axis = sec_axis(~ . / 0.4, name = "Asthma Prevalence")) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) + 
+  labs(title = "Fire Counts and Asthma per County in 2022")
+  
+fire_plot_asthma
+
+
+fire_plot_2016 <- ggplot(fires_aqi_2016, aes(x=COUNTY, y=n)) + 
+  geom_bar(stat = "identity") + 
+  geom_point(data = fires_aqi_2016, aes(x = COUNTY, y=AQI*0.3)) + 
+  scale_y_continuous(name = "Fires Counts", 
+                     sec.axis = sec_axis(~ . / 0.3, name = "AQI")) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) + 
+  labs(title = "Fire Counts and AQI per County in 2016")
+  
+fire_plot_2016
+```
 
