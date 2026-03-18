@@ -10,6 +10,8 @@ library(here)
 library(tidyverse)
 library(ggplot2)
 library(lubridate)
+library(ggpubr)
+library(sf)
 ```
 
 ```{r}
@@ -102,47 +104,58 @@ asthma_2018 <- asthma_clean %>%
   filter(YEARS == "2018")
 
 data_2018 <- inner_join(AQI_2018_clean, asthma_2018, by = "COUNTY")
-
-data_2018 <- data_2018 %>%
-  select(c(COUNTY, AQI, `CURRENT PREVALENCE`, `95% CONFIDENCE INTERVAL`))
+data_2018_SVI <- inner_join(data_2018, SVI_2018_clean, by = "COUNTY")
 
 asthma_2020 <- asthma_clean %>%
   filter(YEARS == "2020")
 
 data_2020 <- inner_join(AQI_2020_clean, asthma_2020, by = "COUNTY")
-
-data_2020 <- data_2020 %>%
-  select(c(COUNTY, AQI, `CURRENT PREVALENCE`, `95% CONFIDENCE INTERVAL`))
+data_2020_SVI <- inner_join(data_2020, SVI_2020_clean, by = "COUNTY")
 
 asthma_2022 <- asthma_clean %>%
   filter(YEARS == "2022")
 
 data_2022 <- inner_join(AQI_2022_clean, asthma_2022, by = "COUNTY")
-
-data_2022 <- data_2022 %>%
-  select(c(COUNTY, AQI, `CURRENT PREVALENCE`, `95% CONFIDENCE INTERVAL`))
-
-
+data_2022_SVI <- inner_join(data_2022, SVI_2022_clean, by = "COUNTY")
 ```
 
 ```{r}
 plot_2016 <- ggplot(data_2016, aes(AQI, `CURRENT PREVALENCE`)) +
-  geom_point()
+  geom_point() +
+  geom_smooth(method = "lm") + 
+  stat_cor(aes(label = after_stat(rr.label))) +
+  labs(y = "Asthma Prevalence (%)", 
+       title = "AQI vs Asthma Prevalence by California County in 2016")
 
 plot_2016
 
+mlm.2 <- lm(data_2016$AQI ~ data_2016$`CURRENT PREVALENCE`)
+summary(mlm.2)
+
 plot_2018 <- ggplot(data_2018, aes(AQI, `CURRENT PREVALENCE`)) +
-  geom_point()
+  geom_point() +
+  geom_smooth(method = "lm") + 
+  stat_cor(aes(label = after_stat(rr.label))) + 
+  labs(y = "Asthma Prevalence (%)", 
+       title = "AQI vs Asthma Prevalence by California County in 2018")
 
 plot_2018
 
 plot_2020 <- ggplot(data_2020, aes(AQI, `CURRENT PREVALENCE`)) +
-  geom_point()
+  geom_point() +
+  geom_smooth(method = "lm") + 
+  stat_cor(aes(label = after_stat(rr.label))) +
+  labs(y = "Asthma Prevalence (%)", 
+       title = "AQI vs Asthma Prevalence by California County in 2020")
 
 plot_2020
 
 plot_2022 <- ggplot(data_2022, aes(AQI, `CURRENT PREVALENCE`)) +
-  geom_point()
+  geom_point() + 
+  geom_smooth(method = "lm") + 
+  stat_cor(aes(label = after_stat(rr.label))) +
+  labs(y = "Asthma Prevalence (%)", 
+       title = "AQI vs Asthma Prevalence by California County in 2022")
 
 plot_2022
 ```
@@ -153,4 +166,24 @@ plot_2016_SVI <- ggplot(data_2016_SVI, aes(`CURRENT PREVALENCE`, EP_AGE65)) +
 
 plot_2016_SVI
 ```
+
+```{r}
+combined_data <- bind_rows(
+  data_2016_SVI %>% mutate(Year = 2016),
+  data_2018_SVI %>% mutate(Year = 2018),
+  data_2020_SVI %>% mutate(Year = 2020),
+  data_2022_SVI %>% mutate(Year = 2022)
+)
+```
+
+```{r}
+combined_plot <- ggplot(combined_data, aes(AQI, `CURRENT PREVALENCE`, 
+                                           color = factor(Year))) + geom_point()
+combined_plot
+```
+
+```{r}
+fires <- read
+```
+
 
