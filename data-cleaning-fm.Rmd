@@ -14,16 +14,110 @@ library(lubridate)
 ```{r}
 SVI <- read_csv(here("California_county_SVI.csv"))
 asthma <- read_csv((here("current-asthma-prevalence-by-county-2015_2022.csv")))
-AQI <- read_csv(here("daily_aqi_by_county_2025 2.csv"))
+AQI_2022 <- read_csv(here("daily_aqi_by_county_2022.csv"))
+AQI_2020 <- read_csv(here("daily_aqi_by_county_2020.csv"))
+AQI_2018 <- read_csv(here("daily_aqi_by_county_2018.csv"))
+AQI_2016 <- read_csv(here("daily_aqi_by_county_2016.csv"))
 ```
 
 ```{r}
-SVI_clean <- SVI %>%
+SVI_2022_clean <- SVI %>%
   subset(select = -c(STATE, ST_ABBR, LOCATION, M_TOTPOP))
 ```
 
 ```{r}
 asthma_clean <- asthma %>%
   filter(`AGE GROUP` == "All ages")
+
+year <- as.data.frame(strsplit(x = asthma_clean$YEARS, "-"))
+years <- year[2,1:236]
+years_t <- as.data.frame(t(years))
+
+asthma_clean <- asthma_clean %>%
+  mutate(YEARS = years_t)
+```
+
+```{r}
+AQI_2022$Date <- as.Date((AQI_2022$Date))
+AQI_2022_clean <- AQI_2022 %>%
+  filter(`State Name` == "California") %>%
+  aggregate(AQI ~ `county Name`, FUN = "mean") %>%
+  rename(COUNTY = `county Name`)
+
+AQI_2020$Date <- as.Date((AQI_2020$Date))
+AQI_2020_clean <- AQI_2020 %>%
+  filter(`State Name` == "California") %>%
+  aggregate(AQI ~ `county Name`, FUN = "mean") %>%
+  rename(COUNTY = `county Name`)
+
+AQI_2018$Date <- as.Date((AQI_2018$Date))
+AQI_2018_clean <- AQI_2018 %>%
+  filter(`State Name` == "California") %>%
+  aggregate(AQI ~ `county Name`, FUN = "mean") %>%
+  rename(COUNTY = `county Name`)
+
+AQI_2016$Date <- as.Date((AQI_2016$Date))
+AQI_2016_clean <- AQI_2016 %>%
+  filter(`State Name` == "California") %>%
+  aggregate(AQI ~ `county Name`, FUN = "mean") %>%
+  rename(COUNTY = `county Name`)
+```
+
+```{r}
+asthma_2016 <- asthma_clean %>%
+  filter(YEARS == "2016")
+
+data_2016 <- inner_join(AQI_2016_clean, asthma_2016, by = "COUNTY")
+
+data_2016 <- data_2016 %>%
+  select(c(COUNTY, AQI, `CURRENT PREVALENCE`, `95% CONFIDENCE INTERVAL`))
+
+asthma_2018 <- asthma_clean %>%
+  filter(YEARS == "2018")
+
+data_2018 <- inner_join(AQI_2018_clean, asthma_2018, by = "COUNTY")
+
+data_2018 <- data_2018 %>%
+  select(c(COUNTY, AQI, `CURRENT PREVALENCE`, `95% CONFIDENCE INTERVAL`))
+
+asthma_2020 <- asthma_clean %>%
+  filter(YEARS == "2020")
+
+data_2020 <- inner_join(AQI_2020_clean, asthma_2020, by = "COUNTY")
+
+data_2020 <- data_2020 %>%
+  select(c(COUNTY, AQI, `CURRENT PREVALENCE`, `95% CONFIDENCE INTERVAL`))
+
+asthma_2022 <- asthma_clean %>%
+  filter(YEARS == "2022")
+
+data_2022 <- inner_join(AQI_2022_clean, asthma_2022, by = "COUNTY")
+
+data_2022 <- data_2022 %>%
+  select(c(COUNTY, AQI, `CURRENT PREVALENCE`, `95% CONFIDENCE INTERVAL`))
+
+
+```
+
+```{r}
+plot_2016 <- ggplot(data_2016, aes(AQI, `CURRENT PREVALENCE`)) +
+  geom_point()
+
+plot_2016
+
+plot_2018 <- ggplot(data_2018, aes(AQI, `CURRENT PREVALENCE`)) +
+  geom_point()
+
+plot_2018
+
+plot_2020 <- ggplot(data_2020, aes(AQI, `CURRENT PREVALENCE`)) +
+  geom_point()
+
+plot_2020
+
+plot_2022 <- ggplot(data_2022, aes(AQI, `CURRENT PREVALENCE`)) +
+  geom_point()
+
+plot_2022
 ```
 
