@@ -1,0 +1,29 @@
+---
+title: "Data Clry McNair"
+date: "2026-03-18"
+output: html_document
+---
+
+```{r}
+library(here)
+library(tidyverse)
+library(ggplot2)
+library(lubridate)
+```
+
+```{r}
+SVI <- read_csv(here("California_county_SVI.csv"))
+asthma <- read_csv((here("current-asthma-prevalence-by-county-2015_2022.csv")))
+AQI <- read_csv(here("daily_aqi_by_county_2025 2.csv"))
+```
+
+```{r}
+SVI_clean <- SVI %>%
+  subset(select = -c(STATE, ST_ABBR, LOCATION, M_TOTPOP))
+```
+
+```{r}
+asthma_clean <- asthma %>%
+  filter(`AGE GROUP` == "All ages")
+```
+
