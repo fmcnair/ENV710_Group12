@@ -1,5 +1,6 @@
 ---
-title: "Data Clry McNair"
+title: "Data Cleaning"
+author: "Flannery McNair"
 date: "2026-03-18"
 output: html_document
 ---
@@ -12,7 +13,10 @@ library(lubridate)
 ```
 
 ```{r}
-SVI <- read_csv(here("California_county_SVI.csv"))
+SVI_2022 <- read_csv(here("California_county_SVI_2022.csv"))
+SVI_2020 <- read_csv(here("California_county_SVI_2020.csv"))
+SVI_2018 <- read_csv(here("California_county_SVI_2018.csv"))
+SVI_2016 <- read_csv(here("California_county_SVI_2016.csv"))
 asthma <- read_csv((here("current-asthma-prevalence-by-county-2015_2022.csv")))
 AQI_2022 <- read_csv(here("daily_aqi_by_county_2022.csv"))
 AQI_2020 <- read_csv(here("daily_aqi_by_county_2020.csv"))
@@ -21,20 +25,44 @@ AQI_2016 <- read_csv(here("daily_aqi_by_county_2016.csv"))
 ```
 
 ```{r}
-SVI_2022_clean <- SVI %>%
-  subset(select = -c(STATE, ST_ABBR, LOCATION, M_TOTPOP))
+SVI_2022_clean <- SVI_2022 %>%
+  subset(select = -c(STATE, ST_ABBR, ST, LOCATION)) %>%
+  select(-starts_with("M_")) %>%
+  select(-starts_with("MP_")) %>%
+  select(-starts_with("F_"))
+SVI_2022_clean$COUNTY <- gsub(" County", "", SVI_2022_clean$COUNTY)
+
+SVI_2020_clean <- SVI_2020 %>%
+  subset(select = -c(STATE, ST_ABBR, ST, LOCATION)) %>%
+  select(-starts_with("M_")) %>%
+  select(-starts_with("MP_")) %>%
+  select(-starts_with("F_"))
+SVI_2020_clean$COUNTY <- gsub(" County", "", SVI_2020_clean$COUNTY)
+
+SVI_2018_clean <- SVI_2018 %>%
+  subset(select = -c(STATE, ST_ABBR, ST, LOCATION)) %>%
+  select(-starts_with("M_")) %>%
+  select(-starts_with("MP_")) %>%
+  select(-starts_with("F_"))
+SVI_2018_clean$COUNTY <- gsub(" County", "", SVI_2018_clean$COUNTY)
+
+SVI_2016_clean <- SVI_2016 %>%
+  subset(select = -c(STATE, ST_ABBR, ST, LOCATION)) %>%
+  select(-starts_with("M_")) %>%
+  select(-starts_with("MP_")) %>%
+  select(-starts_with("F_"))
+SVI_2016_clean$COUNTY <- gsub(" County", "", SVI_2016_clean$COUNTY)
 ```
 
 ```{r}
 asthma_clean <- asthma %>%
   filter(`AGE GROUP` == "All ages")
 
-year <- as.data.frame(strsplit(x = asthma_clean$YEARS, "-"))
-years <- year[2,1:236]
-years_t <- as.data.frame(t(years))
+years <- sapply(strsplit(asthma_clean$YEARS, "-"), `[`, 2)
 
 asthma_clean <- asthma_clean %>%
-  mutate(YEARS = years_t)
+  mutate(YEARS = years) %>%
+  select(c(COUNTY, YEARS, `CURRENT PREVALENCE`, `95% CONFIDENCE INTERVAL`))
 ```
 
 ```{r}
@@ -68,9 +96,7 @@ asthma_2016 <- asthma_clean %>%
   filter(YEARS == "2016")
 
 data_2016 <- inner_join(AQI_2016_clean, asthma_2016, by = "COUNTY")
-
-data_2016 <- data_2016 %>%
-  select(c(COUNTY, AQI, `CURRENT PREVALENCE`, `95% CONFIDENCE INTERVAL`))
+data_2016_SVI <- inner_join(data_2016, SVI_2016_clean, by = "COUNTY")
 
 asthma_2018 <- asthma_clean %>%
   filter(YEARS == "2018")
@@ -119,5 +145,12 @@ plot_2022 <- ggplot(data_2022, aes(AQI, `CURRENT PREVALENCE`)) +
   geom_point()
 
 plot_2022
+```
+
+```{r}
+plot_2016_SVI <- ggplot(data_2016_SVI, aes(`CURRENT PREVALENCE`, EP_AGE65)) +
+  geom_point()
+
+plot_2016_SVI
 ```
 
