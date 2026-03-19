@@ -190,7 +190,7 @@ combined_plot <- ggplot(combined_data, aes(AQI, `CURRENT PREVALENCE`,
                                            color = factor(Year))) + geom_point()
 combined_plot
 ```
-
+#### DON'T RUN THIS CODE (will not work lol)
 ```{r}
 fires <- st_read("~/Downloads/California_Historic_Fire_Perimeters_-6273763535668926275")
 
@@ -202,9 +202,7 @@ fires_clean <- fires %>%
   subset(select= -c(STATE, AGENCY, INC_NUM, C_METHOD, OBJECTIVE, COMMENTS,
                     COMPLEX_NA, IRWINID, FIRE_NUM, COMPLEX_ID)) %>%
   filter(YEAR_ == "2022" | YEAR_ == "2020" | YEAR_ == "2018" | YEAR_ == "2016")
-```
 
-```{r}
 cali_counties <- st_read("~/Downloads/ca_counties/CA_Counties.shp")
 
 occurrences_with_county <- st_join(
