@@ -245,10 +245,11 @@ fire_plot <- ggplot(fires_aqi_2022, aes(x=COUNTY, y=n)) +
   geom_bar(stat = "identity", fill = "red") + 
   geom_point(data = fires_aqi_2022, aes(x = COUNTY, y=AQI*0.4), 
              color = "blue") + 
-  scale_y_continuous(name = "Fires Counts", 
+  scale_y_continuous(name = "Fire Counts", 
                      sec.axis = sec_axis(~ . / 0.4, name = "AQI")) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) + 
-  labs(title = "Fire Counts and AQI per County in 2022")
+  labs(title = "Fire Counts and AQI per county in 2022", 
+       subtitle = "California")
   
 fire_plot
 
@@ -259,7 +260,8 @@ fire_plot_asthma <- ggplot(fires_aqi_2022, aes(x=COUNTY, y=n)) +
   scale_y_continuous(name = "Fires Counts", 
                      sec.axis = sec_axis(~ . / 0.4, name = "Asthma Prevalence")) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) + 
-  labs(title = "Fire Counts and Asthma per County in 2022")
+  labs(title = "Fire Counts and Asthma per county in 2022", 
+       subtitle = "California")
   
 fire_plot_asthma
 
