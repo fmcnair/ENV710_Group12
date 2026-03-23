@@ -2,7 +2,9 @@
 title: "Data Cleaning"
 author: "Flannery McNair"
 date: "2026-03-18"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r}
@@ -14,6 +16,7 @@ library(ggpubr)
 library(sf)
 ```
 
+Uploading Data
 ```{r}
 SVI_2022 <- read_csv(here("California_county_SVI_2022.csv"))
 SVI_2020 <- read_csv(here("California_county_SVI_2020.csv"))
@@ -26,6 +29,7 @@ AQI_2018 <- read_csv(here("daily_aqi_by_county_2018.csv"))
 AQI_2016 <- read_csv(here("daily_aqi_by_county_2016.csv"))
 ```
 
+Cleaning SVI Data
 ```{r}
 SVI_2022_clean <- SVI_2022 %>%
   subset(select = -c(STATE, ST_ABBR, ST, LOCATION)) %>%
@@ -56,6 +60,7 @@ SVI_2016_clean <- SVI_2016 %>%
 SVI_2016_clean$COUNTY <- gsub(" County", "", SVI_2016_clean$COUNTY)
 ```
 
+Cleaning Asthma data
 ```{r}
 asthma_clean <- asthma %>%
   filter(`AGE GROUP` == "All ages")
@@ -93,6 +98,7 @@ AQI_2016_clean <- AQI_2016 %>%
   rename(COUNTY = `county Name`)
 ```
 
+Combining SVI and Asthma data
 ```{r}
 asthma_2016 <- asthma_clean %>%
   filter(YEARS == "2016")
@@ -119,6 +125,7 @@ data_2022 <- inner_join(AQI_2022_clean, asthma_2022, by = "COUNTY")
 data_2022_SVI <- inner_join(data_2022, SVI_2022_clean, by = "COUNTY")
 ```
 
+Plotting AQI vs asthma prevalence
 ```{r}
 plot_2016 <- ggplot(data_2016, aes(AQI, `CURRENT PREVALENCE`)) +
   geom_point() +
@@ -160,6 +167,7 @@ plot_2022 <- ggplot(data_2022, aes(AQI, `CURRENT PREVALENCE`)) +
 plot_2022
 ```
 
+Plotting AQI and SVI metrics
 ```{r}
 plot_2020_SVI <- ggplot(data_2020_SVI, aes(AQI, E_POV150)) +
   geom_point() +
@@ -176,6 +184,7 @@ plot_2020_RPL <- ggplot(data_2020_SVI, aes(AQI, RPL_THEME3)) +
 plot_2020_RPL
 ```
 
+Combine data together
 ```{r}
 combined_data <- bind_rows(
   data_2016_SVI %>% mutate(Year = 2016),
@@ -185,11 +194,13 @@ combined_data <- bind_rows(
 )
 ```
 
+Plot of current prevalence and aqi across years 
 ```{r}
 combined_plot <- ggplot(combined_data, aes(AQI, `CURRENT PREVALENCE`, 
                                            color = factor(Year))) + geom_point()
 combined_plot
 ```
+
 #### DON'T RUN THIS CODE (will not work lol)
 ```{r}
 fires <- st_read("~/Downloads/California_Historic_Fire_Perimeters_-6273763535668926275")
@@ -214,6 +225,7 @@ occurrences_with_county <- st_join(
 write_csv(occurrences_with_county, here("Fires_per_county.csv"))
 ```
 
+Load fire data
 ```{r}
 county_fires <- read_csv(here("Fires_per_county.csv"))
 county_fires_clean <- county_fires %>%
@@ -221,6 +233,7 @@ county_fires_clean <- county_fires %>%
            GEOID, NAME, ALAND, AWATER, Shape_Leng, Shape_Area, geometry))
 ```
 
+Combining and cleaning fire data with AQI
 ```{r}
 fires_2022 <- county_fires %>%
   filter(YEAR_ == "2022")
@@ -240,6 +253,7 @@ fires_2016_counts <- as.data.frame(count(fires_2016, NAME)) %>%
 fires_aqi_2016 <- full_join(data_2016, fires_2016_counts, by = "COUNTY")
 ```
 
+Plot fires vs AQI and asthma
 ```{r}
 fire_plot <- ggplot(fires_aqi_2022, aes(x=COUNTY, y=n)) + 
   geom_bar(stat = "identity", fill = "red") + 
@@ -264,7 +278,6 @@ fire_plot_asthma <- ggplot(fires_aqi_2022, aes(x=COUNTY, y=n)) +
        subtitle = "California")
   
 fire_plot_asthma
-
 
 fire_plot_2016 <- ggplot(fires_aqi_2016, aes(x=COUNTY, y=n)) + 
   geom_bar(stat = "identity") + 
