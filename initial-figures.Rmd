@@ -253,6 +253,7 @@ fires_2016_counts <- as.data.frame(count(fires_2016, NAME)) %>%
 fires_aqi_2016 <- full_join(data_2016, fires_2016_counts, by = "COUNTY")
 ```
 
+
 Plot fires vs AQI and asthma
 ```{r}
 fire_plot <- ggplot(fires_aqi_2022, aes(x=COUNTY, y=n)) + 
