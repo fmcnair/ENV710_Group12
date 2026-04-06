@@ -1,0 +1,59 @@
+---
+title: "Model Implementation"
+author: "Flannery McNair"
+date: "2026-04-06"
+output: html_document
+---
+
+```{r}
+library(here)
+library(tidyverse)
+library(lubridate)
+library(nlme)
+library(gtsummary)
+library(ggplot2)
+library(car)
+```
+
+
+```{r}
+total_2016_data <- inner_join(data_2016_SVI, fires_2016_counts, by = "COUNTY")
+total_2018_data <- inner_join(data_2018_SVI, fires_2018_counts, by = "COUNTY")
+total_2020_data <- inner_join(data_2020_SVI, fires_2020_counts, by = "COUNTY")
+total_2022_data <- inner_join(data_2022_SVI, fires_2022_counts, by = "COUNTY")
+
+final_dataframe <- bind_rows(
+  total_2016_data %>% mutate(Year = 2016),
+  total_2018_data %>% mutate(Year = 2018),
+  total_2020_data %>% mutate(Year = 2020),
+  total_2022_data %>% mutate(Year = 2022)
+)
+
+final_dataframe <- final_dataframe %>%
+  subset(select = -c(STCNTY, E_POV150, E_HBURD, EP_POV150, EP_HBURD, EPL_POV150,
+                     EPL_HBURD, EPL_UNINSUR, E_NOINT, E_AFAM, E_HISP, E_ASIAN, 
+                     E_NHPI, E_TWOMORE, E_OTHERRACE, EP_NOINT, EP_AFAM, EP_HISP, 
+                     EP_ASIAN, E_AIAN, EP_AIAN, EP_NHPI, EP_TWOMORE, EP_OTHERRACE))
+
+#write_csv(final_dataframe, here("final_dataframe.csv"))
+```
+
+```{r}
+df <- read.csv(here("final_dataframe.csv"), stringsAsFactors = TRUE)
+
+lm1 <- lm(RPL_THEME3 ~ CURRENT.PREVALENCE + n + AQI, data = df)
+
+summary(lm1)
+vif(lm1)
+plot(lm1)
+```
+
+random effect: county? 
+
+
+```{r}
+
+```
+
+
+

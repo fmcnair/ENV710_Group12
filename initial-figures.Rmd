@@ -203,26 +203,26 @@ combined_plot
 
 #### DON'T RUN THIS CODE (will not work lol)
 ```{r}
-fires <- st_read("~/Downloads/California_Historic_Fire_Perimeters_-6273763535668926275")
+#fires <- st_read("~/Downloads/California_Historic_Fire_Perimeters_-6273763535668926275")
 
-head(fires)
+#head(fires)
 
-fires$ALARM_DATE <- as.Date(fires$ALARM_DATE)
+#fires$ALARM_DATE <- as.Date(fires$ALARM_DATE)
 
-fires_clean <- fires %>%
-  subset(select= -c(STATE, AGENCY, INC_NUM, C_METHOD, OBJECTIVE, COMMENTS,
-                    COMPLEX_NA, IRWINID, FIRE_NUM, COMPLEX_ID)) %>%
-  filter(YEAR_ == "2022" | YEAR_ == "2020" | YEAR_ == "2018" | YEAR_ == "2016")
+#fires_clean <- fires %>%
+#  subset(select= -c(STATE, AGENCY, INC_NUM, C_METHOD, OBJECTIVE, COMMENTS,
+#                    COMPLEX_NA, IRWINID, FIRE_NUM, COMPLEX_ID)) %>%
+#  filter(YEAR_ == "2022" | YEAR_ == "2020" | YEAR_ == "2018" | YEAR_ == "2016")
 
-cali_counties <- st_read("~/Downloads/ca_counties/CA_Counties.shp")
+#cali_counties <- st_read("~/Downloads/ca_counties/CA_Counties.shp")
 
-occurrences_with_county <- st_join(
-  fires_clean,
-  cali_counties,
-  join = st_intersects
-)
+#occurrences_with_county <- st_join(
+#  fires_clean,
+#  cali_counties,
+#  join = st_intersects
+#)
 
-write_csv(occurrences_with_county, here("Fires_per_county.csv"))
+#write_csv(occurrences_with_county, here("Fires_per_county.csv"))
 ```
 
 Load fire data
@@ -251,6 +251,18 @@ fires_2016_counts <- as.data.frame(count(fires_2016, NAME)) %>%
   rename(COUNTY = NAME)
 
 fires_aqi_2016 <- full_join(data_2016, fires_2016_counts, by = "COUNTY")
+
+fires_2020 <- county_fires %>%
+  filter(YEAR_ == "2020")
+
+fires_2020_counts <- as.data.frame(count(fires_2020, NAME)) %>%
+  rename(COUNTY = NAME)
+
+fires_2018 <- county_fires %>%
+  filter(YEAR_ == "2018")
+
+fires_2018_counts <- as.data.frame(count(fires_2018, NAME)) %>%
+  rename(COUNTY = NAME)
 ```
 
 
