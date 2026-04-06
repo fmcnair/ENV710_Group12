@@ -29,6 +29,11 @@ final_dataframe <- bind_rows(
   total_2022_data %>% mutate(Year = 2022)
 )
 
+acres_burned_2016 <- county_fires_clean %>%
+  aggregate(GIS_ACRES ~ NAME, FUN = sum)
+
+
+
 final_dataframe <- final_dataframe %>%
   subset(select = -c(STCNTY, E_POV150, E_HBURD, EP_POV150, EP_HBURD, EPL_POV150,
                      EPL_HBURD, EPL_UNINSUR, E_NOINT, E_AFAM, E_HISP, E_ASIAN, 
