@@ -1,0 +1,262 @@
+---
+title: "RQ1: Wildfire Burned Area and Annual Mean AQI in California"
+author: "Abrão Soares Pereira"
+date: "2026-04-12"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# Research Question 1
+
+Is total wildfire burned area associated with annual mean AQI at the county level? We hypothesize that larger burned areas will be positively associated with higher mean AQI, after controlling for social vulnerability and year.
+
+
+
+## 1. Load Packages
+
+```{r packages}
+library(here)
+library(tidyverse)
+library(nlme)        
+library(car)        
+library(gtsummary)   
+```
+
+
+## 2. Load and Inspect Data
+
+```{r load-data}
+rq1_data <- read.csv("~/Documents/ENVIRON 710/ENV710_Group12/final_dataframe.csv")
+
+```
+
+## 3. Organize data
+
+```{r clean-data}
+cleaned_data_rq1 <- rq1_data %>%
+  rename(
+    county   = COUNTY,
+    year     = Year,
+    mean_aqi = AQI,
+    acres    = GIS_ACRES,
+    svi      = RPL_THEMES
+  ) %>%
+  mutate(
+    # Log10 transform burned area; zero-fire county-years set to log10(1) = 0
+    acres     = ifelse(is.na(acres) | acres == 0, 1, acres),
+    log_acres = log10(acres),
+    year      = as.integer(year),
+    county    = as.factor(county)
+  ) %>%
+  filter(!is.na(mean_aqi), !is.na(log_acres))
+
+cat("Rows:", nrow(cleaned_data_rq1), "\n")
+cat("Counties:", n_distinct(cleaned_data_rq1$county), "\n")
+cat("Years:", paste(sort(unique(cleaned_data_rq1$year)), collapse = ", "), "\n")
+```
+
+```{r missing-check}
+# Check missing data
+cleaned_data_rq1 %>%
+  select(mean_aqi, log_acres, svi, year) %>%
+  summarise(across(everything(), ~sum(is.na(.)))) %>%
+  pivot_longer(everything(), names_to = "variable", values_to = "n_missing") %>%
+  print()
+```
+
+```{r annual summary}
+
+# Summarize data by year for the statewide trend plot
+annual <- cleaned_data_rq1 %>%
+  group_by(year) %>%
+  summarise(
+    mean_aqi_state = mean(mean_aqi, na.rm = TRUE),
+    total_acres    = sum(acres, na.rm = TRUE),
+    .groups = "drop"
+  )
+```
+
+## 4. Exploratory Data Analysis
+
+### 4.1 Distribution of Key Variables
+
+```{r distributions, fig.width=10, fig.height=4}
+# Graphs and plots
+graph_01 <- ggplot(cleaned_data_rq1, aes(x = log_acres)) +
+  geom_histogram(bins = 40, fill = "orange", color = "white", linewidth = 0.2) +
+  labs(title = "Log10(Acres Burned)", x = "Log10(Acres)", y = "Count") +
+  theme_bw()
+
+graph_02 <- ggplot(cleaned_data_rq1, aes(x = mean_aqi)) +
+  geom_histogram(bins = 40, fill = "red", color = "white", linewidth = 0.2) +
+  labs(title = "Annual Mean AQI", x = "Mean AQI", y = "Count") +
+  theme_bw()
+
+gridExtra::grid.arrange(graph_01, graph_02, ncol = 2)
+```
+
+### 4.2 Statewide Trend Over Time
+
+```{r temporal-trend, fig.width=10, fig.height=5}
+# Dual axis plot
+
+ggplot(annual, aes(x = year)) +
+  geom_col(aes(y = total_acres / 5000, fill = "Total Acres Burned"), 
+           alpha = 0.4, width = 0.6) +
+  geom_line(aes(y = mean_aqi_state, color = "Mean AQI"), 
+            linewidth = 1.2) +
+  geom_point(aes(y = mean_aqi_state, color = "Mean AQI"), 
+             size = 2.5) +
+  scale_fill_manual(values = c("Total Acres Burned" = "orange")) +
+  scale_color_manual(values = c("Mean AQI" = "blue")) +
+  scale_y_continuous(
+    name     = "Mean County AQI (statewide average)",
+    sec.axis = sec_axis(~. * 5000, name = "Total Acres Burned",
+                        labels = scales::comma)
+  ) +
+  labs(
+    title   = "California: Statewide Mean AQI and Total Acres Burned",
+    x       = "Year",
+    fill    = NULL,    
+    color   = NULL     
+  ) +
+  
+  theme_bw()
+```
+
+### 4.3 Scatter: Log Acres Burned vs. Mean AQI
+
+```{r scatter, fig.width=8, fig.height=5}
+# Scatter plot for burned areas and mean AQI
+ggplot(cleaned_data_rq1, aes(x = log_acres, y = mean_aqi)) +
+  geom_point(alpha = 0.4, color = "blue", size = 1.8) +
+  geom_smooth(method = "lm", color = "darkorange", linewidth = 1.1, se = TRUE) +
+  labs(
+    title = "Log10 Acres Burned vs. Annual Mean AQI (County-Year)",
+    x     = "Log10(Acres Burned)",
+    y     = "Annual Mean AQI"
+  ) +
+  theme_bw()
+```
+
+
+
+## 5. Multicollinearity Check (VIF)
+
+```{r vif-check}
+# Check for multicollinearity
+vif_model <- lm(mean_aqi ~ log_acres + svi + year, data = cleaned_data_rq1)
+
+vif_results <- car::vif(vif_model)
+print(round(vif_results, 3))
+
+flagged <- vif_results[vif_results > 5]
+if (length(flagged) == 0) {
+  cat("No variables exceed VIF > 5 — all predictors acceptable.\n")
+} else {
+  print(flagged)
+}
+```
+
+## 6. Linear Mixed-Effects Models
+
+### 6.1 Fit Standard Linear Regression (for AIC comparison)
+
+```{r gls-model}
+# compare GLS with LME
+cali_gls <- gls(mean_aqi ~ log_acres + year, data = cleaned_data_rq1, method = "ML")
+```
+
+### 6.2 Base Model: Burned Area + Year
+
+```{r model-base}
+# Simple mixed model 
+model_base <- lme(
+  mean_aqi ~ log_acres + year,
+  random = ~1 | county,
+  data   = cleaned_data_rq1,
+  method = "ML"
+)
+
+summary(model_base)
+```
+
+### 6.3 Extended Model: Add SVI as Covariate
+
+```{r model-svi}
+# Extended model with SVI 
+model_svi <- lme(
+  mean_aqi ~ log_acres + svi + year,
+  random = ~1 | county,
+  data   = cleaned_data_rq1,
+  method = "ML"
+)
+
+summary(model_svi)
+```
+
+### 6.4 Model Comparison (AIC)
+
+```{r aic-comparison}
+# compare models AIC
+AIC(cali_gls, model_base, model_svi)
+```
+
+
+
+## 7. Model Diagnostics
+
+```{r diagnostics, fig.width=7, fig.height=5}
+# Best model fitting
+best_model <- model_svi
+
+# Residuals vs. Fitted (homoscedasticity)
+plot(best_model,
+     xlab = "Fitted Values",
+     ylab = "Residuals",
+     main = "Residuals vs. Fitted Values")
+
+# QQ Plot (normality of residuals)
+qqnorm(best_model, main = "QQ Plot of Model Residuals")
+```
+
+
+
+## 8. Results Table
+
+```{r results-table}
+# Create a table 
+tbl_regression(best_model)
+```
+
+
+## 9. Results Visualization
+
+```{r predicted-plot, fig.width=8, fig.height=5}
+# visualize model result
+predict_data_rq1 <- data.frame(
+  log_acres = seq(min(cleaned_data_rq1$log_acres), max(cleaned_data_rq1$log_acres), length.out = 200),
+  svi       = mean(cleaned_data_rq1$svi, na.rm = TRUE),
+  year      = median(cleaned_data_rq1$year)
+)
+
+predict_data_rq1$predicted_aqi <- predict(best_model, newdata = predict_data_rq1, level = 0)
+
+ggplot() +
+  geom_point(data = cleaned_data_rq1, aes(x = log_acres, y = mean_aqi),
+             alpha = 0.3, color = "blue", size = 1.5) +
+  geom_line(data = predict_data_rq1, aes(x = log_acres, y = predicted_aqi),
+            color = "orange", linewidth = 1.3) +
+  labs(
+    title    = "Model-Predicted Mean AQI by Wildfire Burned Area",
+    subtitle = "Population-level prediction (average SVI county, median year)",
+    x        = "Log10(Acres Burned)",
+    y        = "Annual Mean AQI"
+  ) +
+  theme_bw()
+```
+
+
