@@ -17,10 +17,38 @@ library(car)
 
 
 ```{r}
-total_2016_data <- inner_join(data_2016_SVI, fires_2016_counts, by = "COUNTY")
-total_2018_data <- inner_join(data_2018_SVI, fires_2018_counts, by = "COUNTY")
-total_2020_data <- inner_join(data_2020_SVI, fires_2020_counts, by = "COUNTY")
-total_2022_data <- inner_join(data_2022_SVI, fires_2022_counts, by = "COUNTY")
+acres_burned_2016 <- county_fires_clean %>%
+  filter(YEAR_ == 2016) %>%
+  aggregate(GIS_ACRES ~ NAME, FUN = sum) %>%
+  rename(COUNTY = NAME)
+
+fire_data_2016 <- inner_join(fires_2016_counts, acres_burned_2016, by = "COUNTY")
+
+acres_burned_2018 <- county_fires_clean %>%
+  filter(YEAR_ == 2018) %>%
+  aggregate(GIS_ACRES ~ NAME, FUN = sum) %>%
+  rename(COUNTY = NAME)
+
+fire_data_2018 <- inner_join(fires_2018_counts, acres_burned_2018, by = "COUNTY")
+
+acres_burned_2020 <- county_fires_clean %>%
+  filter(YEAR_ == 2020) %>%
+  aggregate(GIS_ACRES ~ NAME, FUN = sum) %>%
+  rename(COUNTY = NAME)
+
+fire_data_2020 <- inner_join(fires_2020_counts, acres_burned_2020, by = "COUNTY")
+
+acres_burned_2022 <- county_fires_clean %>%
+  filter(YEAR_ == 2022) %>%
+  aggregate(GIS_ACRES ~ NAME, FUN = sum) %>%
+  rename(COUNTY = NAME)
+
+fire_data_2022 <- inner_join(fires_2022_counts, acres_burned_2022, by = "COUNTY")
+
+total_2016_data <- inner_join(data_2016_SVI, fire_data_2016, by = "COUNTY")
+total_2018_data <- inner_join(data_2018_SVI, fire_data_2018, by = "COUNTY")
+total_2020_data <- inner_join(data_2020_SVI, fire_data_2020, by = "COUNTY")
+total_2022_data <- inner_join(data_2022_SVI, fire_data_2022, by = "COUNTY")
 
 final_dataframe <- bind_rows(
   total_2016_data %>% mutate(Year = 2016),
@@ -28,11 +56,6 @@ final_dataframe <- bind_rows(
   total_2020_data %>% mutate(Year = 2020),
   total_2022_data %>% mutate(Year = 2022)
 )
-
-acres_burned_2016 <- county_fires_clean %>%
-  aggregate(GIS_ACRES ~ NAME, FUN = sum)
-
-
 
 final_dataframe <- final_dataframe %>%
   subset(select = -c(STCNTY, E_POV150, E_HBURD, EP_POV150, EP_HBURD, EPL_POV150,
@@ -44,21 +67,121 @@ final_dataframe <- final_dataframe %>%
 ```
 
 ```{r}
-df <- read.csv(here("final_dataframe.csv"), stringsAsFactors = TRUE)
+df <- read.csv(here("final_dataframe.csv"), stringsAsFactors = TRUE) %>%
+  subset(select = -c(E_POV, E_PCI, EP_POV, EP_PCI, EPL_POV, EPL_PCI)) %>%
+  drop_na()
 
-lm1 <- lm(RPL_THEME3 ~ CURRENT.PREVALENCE + n + AQI, data = df)
+lm1 <- lme(CURRENT.PREVALENCE ~  GIS_ACRES + AQI, random = ~1|COUNTY, data = df)
 
 summary(lm1)
 vif(lm1)
 plot(lm1)
+cor.test(df$GIS_ACRES, df$CURRENT.PREVALENCE, method = "pearson")
 ```
 
 random effect: county? 
 
 
 ```{r}
+fires_per_county <- df %>%
+  aggregate(n ~ COUNTY, FUN = sum)
 
 ```
 
 
+Data Visualization
+
+```{r}
+
+```
+
+
+
+Second, in Los Angeles County specifically, is the burned area associated with an increase in the number of days with an AQI above 100—the threshold marking conditions unhealthy for sensitive groups? We hypothesize that years with greater burned area in or near the county will show significantly more unhealthy air quality days.
+
+need 
+- daily aqi data in LA (can use AQI data) 
+- fires/year, maybe monthly data?
+
+
+```{r}
+# finding aqi for LA 
+AQI_2022_daily <- AQI_2022 %>%
+  filter(`State Name` == "California") %>%
+  filter(`county Name` == "Los Angeles")
+
+AQI_2020_daily <- AQI_2020 %>%
+  filter(`State Name` == "California") %>%
+  filter(`county Name` == "Los Angeles")
+
+AQI_2018_daily <- AQI_2018 %>%
+  filter(`State Name` == "California") %>%
+  filter(`county Name` == "Los Angeles")
+
+AQI_2016_daily <- AQI_2016 %>%
+  filter(`State Name` == "California") %>%
+  filter(`county Name` == "Los Angeles")
+
+AQI_daily <- bind_rows(
+  AQI_2016_daily %>% mutate(Year = 2016),
+  AQI_2018_daily %>% mutate(Year = 2018),
+  AQI_2020_daily %>% mutate(Year = 2020),
+  AQI_2022_daily %>% mutate(Year = 2022)
+)
+
+# days of unhealthy aqi
+AQI_unhealthy <- AQI_daily %>%
+  filter(Category == "Unhealthy for Sensitive Groups" | Category == "Unhealthy" |
+           Category == "Very Unhealthy")
+
+# fires in LA
+LA_fires <- county_fires_clean %>%
+  filter(NAME == "Los Angeles")
+
+la_fires_plot <- ggplot(LA_fires, aes(x =  factor(year(ALARM_DATE)))) + 
+  geom_bar(stat = "count")
+
+la_fires_plot
+
+AQI_plot <- ggplot(AQI_unhealthy, aes(x = factor(year(Date)), y = AQI)) + 
+  geom_boxplot()
+
+AQI_plot
+
+# number of each type of aqi each year
+df1 <-AQI_daily %>% 
+  count(year(Date), Category)
+
+ggplot(df1, aes(x=factor(`year(Date)`), y=n, fill=Category))+  
+  geom_bar(stat="identity")
+```
+consolidate into months? 
+if i have the length of the fire, can i count the number of days that fires are present in each county? and on specific days? 
+maybe do months first 
+
+```{r}
+monthly_fire_data <- LA_fires %>% 
+  mutate(month_year = format(ALARM_DATE, "%Y-%m")) %>%
+  aggregate(GIS_ACRES ~ month_year, FUN = sum)
+
+monthly_AQI_data <- AQI_daily %>%
+  mutate(month_year = format(Date, "%Y-%m")) %>%
+  aggregate(AQI ~ month_year, FUN = mean)
+
+monthly_data <- left_join(monthly_AQI_data, monthly_fire_data, by = "month_year") %>%
+  mutate(across(where(is.numeric), ~replace_na(., 0)))
+
+aqi_vs_fire <- ggplot(monthly_data, aes(x = month_year, y = GIS_ACRES)) + 
+  geom_bar(stat = "identity", fill = "red") + 
+  geom_point(data = monthly_data, aes(x = month_year, y = AQI*100), color = "blue") + 
+  scale_y_continuous(name = "Fire Counts", 
+                     sec.axis = sec_axis(~ . / 100, name = "AQI")) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+
+aqi_vs_fire
+  
+lm3 <- lm(AQI ~ GIS_ACRES, data = monthly_data)
+summary(lm3)
+plot(lm3)
+```
 
