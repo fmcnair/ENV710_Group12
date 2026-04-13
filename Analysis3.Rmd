@@ -1,0 +1,38 @@
+---
+title: "Analysis3"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+
+library(here)
+library(tidyverse)
+library(lubridate)
+library(nlme)
+library(gtsummary)
+library(ggplot2)
+library(car)
+
+```
+
+
+```{r}
+df <- read.csv(here("final_dataframe.csv"), stringsAsFactors = TRUE)
+
+lm1 <- lm(RPL_THEME3 ~ CURRENT.PREVALENCE + n + AQI, data = df)
+
+summary(lm1)
+vif(lm1)
+plot(lm1)
+
+
+lm1 <- lm(RPL_THEME3 ~ CURRENT.PREVALENCE + n + AQI, data = df)
+
+summary(lm1)
+vif(lm1)
+plot(lm1)
+```
+
+
