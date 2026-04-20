@@ -13,6 +13,7 @@ library(nlme)
 library(gtsummary)
 library(ggplot2)
 library(car)
+library(DHARMa)
 ```
 
 
@@ -63,13 +64,23 @@ final_dataframe <- final_dataframe %>%
                      E_NHPI, E_TWOMORE, E_OTHERRACE, EP_NOINT, EP_AFAM, EP_HISP, 
                      EP_ASIAN, E_AIAN, EP_AIAN, EP_NHPI, EP_TWOMORE, EP_OTHERRACE))
 
-#write_csv(final_dataframe, here("final_dataframe.csv"))
+all_data <- final_dataframe %>%
+  subset(select = c(COUNTY, AQI, YEARS, `CURRENT PREVALENCE`, RPL_THEME1, RPL_THEME2,
+                    RPL_THEME3, RPL_THEME4, RPL_THEMES, n, GIS_ACRES)) %>%
+  rename(Fire_Count = n)
+
+write_csv(all_data, here("LiangCMcNairFPereiraA_dataframe.csv"))
 ```
 
 ```{r}
 df <- read.csv(here("final_dataframe.csv"), stringsAsFactors = TRUE) %>%
   subset(select = -c(E_POV, E_PCI, EP_POV, EP_PCI, EPL_POV, EPL_PCI)) %>%
-  drop_na()
+  drop_na() %>%
+  mutate(
+    # Log10 transform burned area; zero-fire county-years set to log10(1) = 0
+    GIS_ACRES     = ifelse(is.na(GIS_ACRES) | GIS_ACRES == 0, 1, GIS_ACRES),
+    log_acres = log10(GIS_ACRES)
+  )
 
 lm1 <- lme(CURRENT.PREVALENCE ~  GIS_ACRES + AQI, random = ~1|COUNTY, data = df)
 
@@ -92,6 +103,27 @@ fires_per_county <- df %>%
 Data Visualization
 
 ```{r}
+burned_area_before <- ggplot(df, aes(x = GIS_ACRES)) +
+  geom_histogram(bins = 40, fill = "orange", color = "white", linewidth = 0.2) +
+  labs(title = "Acres Burned", x = "Acres", y = "Count") +
+  theme_bw()
+burned_area_before
+
+asthma_graph <- ggplot(df, aes(x = CURRENT.PREVALENCE)) +
+  geom_histogram(fill = "salmon", color = "white", linewidth = 0.2) +
+  labs(title = "Asthma Prevalence", x = "Asthma Prevalence (%)", y = "Count") +
+  theme_bw()
+asthma_graph
+
+AQI_graph <- ggplot(df, aes(x = AQI)) + 
+  geom_histogram()
+AQI_graph
+
+SVI_graph <- ggplot(df, aes(x = RPL_THEMES)) + 
+  geom_histogram(fill = "darkgreen", color = "white", linewidth = 0.2) +
+  labs(title = "SVI", x = "RPL_THEME", y = "Count") +
+  theme_bw()
+SVI_graph
 
 ```
 
@@ -153,8 +185,16 @@ df1 <-AQI_daily %>%
   count(year(Date), Category)
 
 ggplot(df1, aes(x=factor(`year(Date)`), y=n, fill=Category))+  
-  geom_bar(stat="identity")
+  geom_bar(stat="identity") + 
+  labs(title = "Air Quality in LA County", x = "Year", 
+       y = "Count") + 
+  theme_bw()
 ```
+
+```{r}
+#lm_a <- lme(AQI_daily$Category ~ )
+```
+
 consolidate into months? 
 if i have the length of the fire, can i count the number of days that fires are present in each county? and on specific days? 
 maybe do months first 
@@ -162,26 +202,70 @@ maybe do months first
 ```{r}
 monthly_fire_data <- LA_fires %>% 
   mutate(month_year = format(ALARM_DATE, "%Y-%m")) %>%
-  aggregate(GIS_ACRES ~ month_year, FUN = sum)
+  aggregate(GIS_ACRES ~ month_year, FUN = sum) %>%
+  mutate(
+    # Log10 transform burned area; zero-fire county-years set to log10(1) = 0
+    GIS_ACRES     = ifelse(is.na(GIS_ACRES) | GIS_ACRES == 0, 1, GIS_ACRES),
+    log_acres = log10(GIS_ACRES)
+  )
+  
 
 monthly_AQI_data <- AQI_daily %>%
   mutate(month_year = format(Date, "%Y-%m")) %>%
-  aggregate(AQI ~ month_year, FUN = mean)
+  group_by(month_year) %>%
+  summarise(
+    mean_AQI = mean(AQI, na.rm = TRUE),
+    days_above_100 = sum(AQI > 100, na.rm = TRUE))
 
 monthly_data <- left_join(monthly_AQI_data, monthly_fire_data, by = "month_year") %>%
-  mutate(across(where(is.numeric), ~replace_na(., 0)))
+  mutate(across(where(is.numeric), ~replace_na(., 0)))  %>%
+  mutate(date_column = ym(month_year))
 
-aqi_vs_fire <- ggplot(monthly_data, aes(x = month_year, y = GIS_ACRES)) + 
-  geom_bar(stat = "identity", fill = "red") + 
-  geom_point(data = monthly_data, aes(x = month_year, y = AQI*100), color = "blue") + 
-  scale_y_continuous(name = "Fire Counts", 
-                     sec.axis = sec_axis(~ . / 100, name = "AQI")) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+write_csv(monthly_data, here("LiangCMcNairFPereiraA_dataframe_monthly.csv"))
+
+aqi_vs_fire <- ggplot(monthly_data, aes(x = month_year)) + 
+  geom_bar(aes(y = GIS_ACRES, fill = "Acres Burned"), stat = "identity") + 
+  geom_point(aes(y = days_above_100 * 1000, color = "Days AQI > 100")) + 
+  scale_y_continuous(
+    name = "Total Acres Burned", 
+    sec.axis = sec_axis(~ . / 1000, name = "# of Days with AQI > 100")
+  ) + 
+  scale_fill_manual(values = c("Acres Burned" = "red")) +
+  scale_color_manual(values = c("Days AQI > 100" = "blue")) +
+  scale_x_discrete(breaks = monthly_data$month_year[seq(1, nrow(monthly_data), by = 3)]) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+        legend.position = "bottom") + 
+  labs(
+    x = "Month-Year", 
+    title = "Relationship between Total Acres Burned and Number of Days 
+with an AQI Over 100",
+    subtitle = "2016, 2018, 2020, 2022",
+    fill = "",
+    color = ""
+  )
+
+#    scale_x_date(date_breaks = "3 months", date_labels = "%Y-%m") +
 
 aqi_vs_fire
   
-lm3 <- lm(AQI ~ GIS_ACRES, data = monthly_data)
+lm3 <- glm(days_above_100 ~ log_acres, data = monthly_data, family = "poisson")
 summary(lm3)
 plot(lm3)
+cor.test(monthly_data$days_above_100, monthly_data$log_acres, method = "pearson")
+
+aqi_vs_fire_dot <- ggplot(monthly_data, aes(log_acres, days_above_100)) +
+  geom_point() +
+  geom_smooth(method = "lm") + 
+  stat_cor(aes(label = after_stat(rr.label))) + 
+  labs(y = "Days Above 100 AQI", x = "log10(Acres Burned)",
+       title = "Log10 Acres Burnes vs Days Above 100 AQI") + 
+  theme_bw()
+
+aqi_vs_fire_dot
+
+tbl_regression(lm3)
 ```
 
+
+lme(mean_aqi ~ log_acres + svi + year, random = ~1 | county,
+    data   = cleaned_data_rq1,method = "ML")
