@@ -14,6 +14,7 @@ library(gtsummary)
 library(ggplot2)
 library(car)
 library(DHARMa)
+library(ggpubr)
 ```
 
 
@@ -73,7 +74,7 @@ write_csv(all_data, here("LiangCMcNairFPereiraA_dataframe.csv"))
 ```
 
 ```{r}
-df <- read.csv(here("final_dataframe.csv"), stringsAsFactors = TRUE) %>%
+df <- read.csv(here("Raw:Old Data/final_dataframe.csv"), stringsAsFactors = TRUE) %>%
   subset(select = -c(E_POV, E_PCI, EP_POV, EP_PCI, EPL_POV, EPL_PCI)) %>%
   drop_na() %>%
   mutate(
@@ -258,7 +259,7 @@ aqi_vs_fire_dot <- ggplot(monthly_data, aes(log_acres, days_above_100)) +
   geom_smooth(method = "lm") + 
   stat_cor(aes(label = after_stat(rr.label))) + 
   labs(y = "Days Above 100 AQI", x = "log10(Acres Burned)",
-       title = "Log10 Acres Burnes vs Days Above 100 AQI") + 
+       title = "Log10 Acres Burned vs Days Above 100 AQI") + 
   theme_bw()
 
 aqi_vs_fire_dot
@@ -269,3 +270,27 @@ tbl_regression(lm3)
 
 lme(mean_aqi ~ log_acres + svi + year, random = ~1 | county,
     data   = cleaned_data_rq1,method = "ML")
+    
+```{r}
+predict_data_rq2 <- data.frame(
+  log_acres = seq(min(monthly_data$log_acres), 
+                  max(monthly_data$log_acres), 
+                  length.out = 200)
+)
+
+predict_data_rq2$predicted_aqi <- predict(lm3, newdata = predict_data_rq2, 
+                                          type = "response")
+
+ggplot() +
+  geom_point(data = monthly_data, aes(x = log_acres, y = days_above_100),
+             alpha = 0.5, size = 1.5, color = "black") +
+  geom_line(data = predict_data_rq2, aes(x = log_acres, y = predicted_aqi),
+           linewidth = 1.3, color = "red") +
+  labs(
+    title    = "Model-Predicted AQI > 100 Days by Wildfire Burned Area",
+    x        = "Log10(Acres Burned)",
+    y        = "Days with AQI > 100"
+  ) +
+  theme_bw()
+```
+    

@@ -17,14 +17,15 @@ library(here)
 library(tidyverse)
 library(nlme)        
 library(car)        
-library(gtsummary)   
+library(gtsummary) 
+library(MASS)
 ```
 
 ## Load Data
 
 ```{r load-data}
 df <- read.csv(here("LiangCMcNairFPereiraA_dataframe.csv"), stringsAsFactors = TRUE)
-monthly_df <- read.csv(here("LiangCMcNairFPereiraA_dataframe_monthly.csv"), 
+monthly_df <- read.csv(here("FINAL DOCUMENTS/LiangCMcNairFPereiraA_dataframe_monthly.csv"), 
                        stringsAsFactors = TRUE)
 ```
 
@@ -291,10 +292,10 @@ with an AQI Over 100",
 
 ```{r}
 # check for correlation
-cor.test(monthly_data$days_above_100, monthly_data$log_acres, method = "pearson")
+cor.test(monthly_df$days_above_100, monthly_df$log_acres, method = "pearson")
 
 # run Poisson regression
-aqi_acres_analysis <- glm(days_above_100 ~ log_acres, data = monthly_data, family = "poisson")
+aqi_acres_analysis <- glm(days_above_100 ~ log_acres, data = monthly_df, family = "poisson")
 summary(aqi_acres_analysis)
 plot(aqi_acres_analysis)
 ```
